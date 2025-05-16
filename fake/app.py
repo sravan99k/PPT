@@ -5,12 +5,10 @@ import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
-import io
-import fpdf
 import os
-import base64
 from io import BytesIO
+import fpdf
+import base64
 import tempfile
 
 # --- Function Definitions ---
@@ -41,45 +39,49 @@ def create_student_pdf(student_info, image_bytes):
     pdf = fpdf.FPDF()
     pdf.add_page()
     try:
-        pdf.add_font("DejaVu", "", "DejaVuSansCondensed.ttf", uni=True)
+        font_path = os.path.join(os.path.dirname(__file__), "DejaVuSansCondensed.ttf")
+        pdf.add_font("DejaVu", "", font_path, uni=True)
         pdf.set_font("DejaVu", size=12)
-    except Exception as e:
+    except:
         pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, txt=f"Student ID: {student_info['SNO']}", ln=True, align='L')
-    pdf.cell(200, 10, txt=f"Overall Mental Health Status: {student_info['Overall Mental Health Status']}", ln=True, align='L')
-    pdf.cell(200, 10, txt=f"Mental Health Risk %: {student_info['Mental Health Risk %']:.2f}%", ln=True, align='L')
-    pdf.cell(200, 10, txt=f"Predicted Risk Class: {student_info['Predicted Risk Class']}", ln=True, align='L')
+    pdf.cell(200, 10, txt=f"Student ID: {student_info['SNO']}", ln=True)
+    pdf.cell(200, 10, txt=f"Overall Mental Health Status: {student_info['Overall Mental Health Status']}", ln=True)
+    pdf.cell(200, 10, txt=f"Mental Health Risk %: {student_info['Mental Health Risk %']:.2f}%", ln=True)
+    pdf.cell(200, 10, txt=f"Predicted Risk Class: {student_info['Predicted Risk Class']}", ln=True)
 
     pdf.ln(10)
-    pdf.cell(200, 10, text="Disorder-wise Risk Percentages:", ln=True, align='L')
-    for category in ["Stress", "Depression", "Eating Disorder", "Behavioral Issues"]:
-        pdf.cell(200, 10, text=f"{category}: {student_info[category + ' %']:.2f}%", ln=True, align='L')
+    pdf.cell(200, 10, txt="Disorder-wise Risk Percentages:", ln=True)
+    for cat in ["Stress", "Depression", "Eating Disorder", "Behavioral Issues"]:
+        pdf.cell(200, 10, txt=f"{cat}: {student_info[cat + ' %']:.2f}%", ln=True)
 
     pdf.ln(10)
-    pdf.cell(200, 10, text="Suggested Guidance:", ln=True, align='L')
-    pdf.multi_cell(190, 10, text=student_info['Suggested Guidance'], align='L')
+    pdf.cell(200, 10, txt="Suggested Guidance:", ln=True)
+    pdf.multi_cell(190, 10, txt=student_info["Suggested Guidance"])
 
+    # Visualization image
     pdf.ln(10)
-    pdf.cell(200, 10, text="Visualization:", ln=True, align='L')
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+    pdf.cell(200, 10, txt="Visualization:", ln=True)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
         tmp_file.write(image_bytes)
-        temp_image_path = tmp_file.name
+        temp_path = tmp_file.name
 
     try:
-        pdf.image(temp_image_path, x=10, y=pdf.get_y(), w=150)
+        pdf.image(temp_path, x=10, y=pdf.get_y(), w=150)
     except Exception as e:
-        print(f"Error embedding image: {e}")
+        print(f"Error loading image: {e}")
     finally:
-        os.remove(temp_image_path)
+        os.remove(temp_path)
 
-    return pdf.output(dest='S')
+    output = BytesIO()
+    pdf.output(output)
+    return output.getvalue()
 
-# --- Main Streamlit Application ---
-
+# --- Main Streamlit App ---
 st.set_page_config(layout="wide")
 st.title("🧠 Student Mental Health Assessment Dashboard")
 
+# Load CSV
 csv_path = os.path.join(os.path.dirname(__file__), "Student_Survey_Responses_300.csv")
 df = pd.read_csv(csv_path, encoding="ISO-8859-1")
 
@@ -89,6 +91,7 @@ risk_score_map = {
     "Skip": 0.5, "Yes": 1.0, "No": 0.0
 }
 
+# Disorder categories
 disorder_categories = {
     "Stress": ["I feel overwhelmed by my emotions", "I often feel anxious", "I often feel lonely or tearful"],
     "Depression": ["I have felt hopeless or helpless recently", "I feel like life is not worth living", "I have thoughts of hurting myself"],
@@ -116,29 +119,21 @@ df["Predicted Risk Class"] = le.inverse_transform(df["Predicted Risk Class Encod
 df["Overall Mental Health Status"] = df["Mental Health Risk %"].apply(classify_risk)
 df["Suggested Guidance"] = df.apply(personalized_guidance, axis=1)
 
-# Download full CSV report
-def to_csv(df_to_convert):
-    return df_to_convert.to_csv(index=False).encode('utf-8')
+# Download Full Report
+def to_csv(df):
+    return df.to_csv(index=False).encode('utf-8')
 
-csv_full_report = to_csv(df)
-st.download_button("📥 Download Full Report (All Students)", data=csv_full_report,
-                   file_name="Full_Student_Mental_Health_Report.csv", mime="text/csv")
+st.download_button("📥 Download Full Report (All Students)", data=to_csv(df), file_name="Student_MH_Report.csv", mime="text/csv")
 
-# Individual student section
+# Sidebar
 st.sidebar.title("📋 Individual Student Report")
-# --- Add class filter if available ---
-# Find class/grade column, case-insensitive
-possible_class_cols = [col for col in df.columns if col.lower() in ["class", "grade"]]
-class_col = possible_class_cols[0] if possible_class_cols else None
+class_col = next((col for col in df.columns if col.lower() in ["class", "grade"]), None)
+filtered_df = df
 
-# Sidebar: filter by class if available
 if class_col:
     class_list = sorted(df[class_col].dropna().unique())
     selected_class = st.sidebar.selectbox(f"Select {class_col}", class_list)
     filtered_df = df[df[class_col] == selected_class]
-else:
-    filtered_df = df
-
 
 if 'SNO' in filtered_df.columns:
     student_ids = filtered_df['SNO'].unique()
@@ -153,74 +148,34 @@ if 'SNO' in filtered_df.columns:
     st.write(f"**Predicted Risk Class**: {student_data['Predicted Risk Class']}")
     st.write(f"**Suggested Guidance**: {student_data['Suggested Guidance']}")
 
-    # Comparison with class averages
-    st.markdown("### 📊 Comparison with Class Averages")
+    # Compare with class average
     categories = ["Stress", "Depression", "Eating Disorder", "Behavioral Issues"]
-    comparison_df = pd.DataFrame({
+    comp_df = pd.DataFrame({
         "Category": categories,
         "Student": [student_data[cat + " %"] for cat in categories],
         "Class Average": [filtered_df[cat + " %"].mean() for cat in categories]
-    })
+    }).set_index("Category")
+    st.markdown("### 📊 Comparison with Class Averages")
+    st.dataframe(comp_df.style.format("{:.2f}"))
 
-    comparison_df.set_index("Category", inplace=True)
-    st.dataframe(comparison_df.style.format("{:.2f}"))
-
-    # Visualization
     fig, ax = plt.subplots(figsize=(8, 6))
     x = range(len(categories))
-    ax.barh(x, comparison_df["Student"], height=0.4, label="Student", color="skyblue")
-    ax.barh([i + 0.4 for i in x], comparison_df["Class Average"], height=0.4, label="Class Avg", color="orange")
+    ax.barh(x, comp_df["Student"], height=0.4, label="Student", color="skyblue")
+    ax.barh([i + 0.4 for i in x], comp_df["Class Average"], height=0.4, label="Class Avg", color="orange")
     ax.set_yticks([i + 0.2 for i in x])
     ax.set_yticklabels(categories)
-    ax.set_xlabel("Risk Percentage")
-    ax.set_title(f"Student vs Class Average for Student {selected_student}")
+    ax.set_xlabel("Risk %")
+    ax.set_title("Student vs Class Average")
     ax.legend()
 
-    buf = BytesIO()
+    buffer = BytesIO()
     plt.tight_layout()
-    plt.savefig(buf, format="png")
+    plt.savefig(buffer, format="png")
     plt.close(fig)
-    img_bytes = buf.getvalue()
+    image_bytes = buffer.getvalue()
 
-    # Download PDF report
-    pdf_bytes = create_student_pdf(student_data, img_bytes)
-    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    href = f'<a href="data:application/pdf;base64,{base64_pdf}" download="Student_{selected_student}_Report.pdf">📄 Download Individual Report (PDF)</a>'
-    st.markdown(href, unsafe_allow_html=True)
-
-    # --- Student-Friendly Visualizations ---
-
-    st.markdown("### 🧩 Student-Friendly Visualizations")
-
-    # Pie chart for student's disorder-wise percentages
-    pie_labels = categories
-    pie_values = [student_data[cat + " %"] for cat in categories]
-    pie_colors = sns.color_palette("pastel")[0:4]
-    fig1, ax1 = plt.subplots()
-    ax1.pie(pie_values, labels=pie_labels, autopct='%1.1f%%', startangle=90, colors=pie_colors)
-    ax1.axis('equal')
-    st.pyplot(fig1)
-
-    # Heatmap of risk levels
-    st.markdown("#### 🔥 Risk Heatmap")
-    heat_df = pd.DataFrame([pie_values], columns=categories, index=["Student"])
-    fig2, ax2 = plt.subplots()
-    sns.heatmap(heat_df, annot=True, cmap="Reds", fmt=".1f", ax=ax2)
-    st.pyplot(fig2)
-
-    # Bar plot of student's vs top 5 highest average category across class
-    st.markdown("#### 📈 Class Risk Trend")
-    class_avg = {cat: df[cat + " %"].mean() for cat in categories}
-    trend_df = pd.DataFrame({
-        "Category": categories,
-        "Student": pie_values,
-        "Class Avg": list(class_avg.values())
-    }).melt(id_vars="Category", var_name="Type", value_name="Percentage")
-
-    fig3, ax3 = plt.subplots()
-    sns.barplot(data=trend_df, x="Category", y="Percentage", hue="Type", palette="Set2", ax=ax3)
-    ax3.set_title("Comparison of Student vs Class Risk Trends")
-    st.pyplot(fig3)
-
-else:
-    st.sidebar.warning("The 'SNO' column was not found in the CSV file.")
+    # Download PDF button
+    pdf_bytes = create_student_pdf(student_data, image_bytes)
+    st.download_button("📄 Download Individual PDF Report", data=pdf_bytes,
+                       file_name=f"Student_{selected_student}_Report.pdf",
+                       mime="application/pdf")
