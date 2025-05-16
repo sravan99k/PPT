@@ -175,7 +175,7 @@ if 'SNO' in filtered_df.columns:
     image_bytes = buffer.getvalue()
 
     # Download PDF button
-    pdf_bytes = create_student_pdf(student_data, image_bytes)
-    st.download_button("📄 Download Individual PDF Report", data=pdf_bytes,
-                       file_name=f"Student_{selected_student}_Report.pdf",
-                       mime="application/pdf")
+    # pdf_bytes = create_student_pdf(student_data, image_bytes)
+    # st.download_button("📄 Download Individual PDF Report", data=pdf_bytes,
+    #                    file_name=f"Student_{selected_student}_Report.pdf",
+    #                    mime="application/pdf")
