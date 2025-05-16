@@ -43,7 +43,7 @@ def create_student_pdf(student_info, image_bytes):
     try:
         pdf.add_font("DejaVu", "", "DejaVuSansCondensed.ttf", uni=True)
         pdf.set_font("DejaVu", size=12)
-    except fpdf.FPDFException as e:
+    except Exception as e:
         pdf.set_font("Arial", size=12)
 
     pdf.cell(200, 10, text=f"Student ID: {student_info['SNO']}", ln=True, align='L')
