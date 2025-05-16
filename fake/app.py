@@ -46,10 +46,10 @@ def create_student_pdf(student_info, image_bytes):
     except Exception as e:
         pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, text=f"Student ID: {student_info['SNO']}", ln=True, align='L')
-    pdf.cell(200, 10, text=f"Overall Mental Health Status: {student_info['Overall Mental Health Status']}", ln=True, align='L')
-    pdf.cell(200, 10, text=f"Mental Health Risk %: {student_info['Mental Health Risk %']:.2f}%", ln=True, align='L')
-    pdf.cell(200, 10, text=f"Predicted Risk Class: {student_info['Predicted Risk Class']}", ln=True, align='L')
+    pdf.cell(200, 10, txt=f"Student ID: {student_info['SNO']}", ln=True, align='L')
+    pdf.cell(200, 10, txt=f"Overall Mental Health Status: {student_info['Overall Mental Health Status']}", ln=True, align='L')
+    pdf.cell(200, 10, txt=f"Mental Health Risk %: {student_info['Mental Health Risk %']:.2f}%", ln=True, align='L')
+    pdf.cell(200, 10, txt=f"Predicted Risk Class: {student_info['Predicted Risk Class']}", ln=True, align='L')
 
     pdf.ln(10)
     pdf.cell(200, 10, text="Disorder-wise Risk Percentages:", ln=True, align='L')
