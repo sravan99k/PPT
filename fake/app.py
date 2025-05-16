@@ -80,7 +80,8 @@ def create_student_pdf(student_info, image_bytes):
 st.set_page_config(layout="wide")
 st.title("🧠 Student Mental Health Assessment Dashboard")
 
-df = pd.read_csv("Student_Survey_Responses_300.csv", encoding="ISO-8859-1")
+csv_path = os.path.join(os.path.dirname(__file__), "Student_Survey_Responses_300.csv")
+df = pd.read_csv(csv_path, encoding="ISO-8859-1")
 
 risk_score_map = {
     "Always": 1.0, "Often": 0.75, "Sometimes": 0.5,
